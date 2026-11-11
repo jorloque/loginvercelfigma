@@ -126,6 +126,12 @@
         <p><strong>¡Gracias!</strong><br />Hemos recibido tu comentario.</p>
         <button type="button" class="link link--strong" id="feedback-again">Escribir otro</button>
       </div>
+
+      <section class="feedback__history" aria-labelledby="feedback-history-title">
+        <h4 id="feedback-history-title">Comentarios anteriores <span id="feedback-history-count"></span></h4>
+        <p class="feedback__history-status" id="feedback-history-status">Cargando…</p>
+        <ul class="feedback__list" id="feedback-list"></ul>
+      </section>
     </div>
 
     <button type="button" class="feedback__toggle" id="feedback-toggle" aria-expanded="false" aria-controls="feedback-panel">
