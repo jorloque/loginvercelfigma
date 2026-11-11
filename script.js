@@ -131,6 +131,52 @@ const feedbackCount = $("#feedback-count");
 const feedbackSend = $("#feedback-send");
 const feedbackThanks = $("#feedback-thanks");
 const feedbackAgain = $("#feedback-again");
+const feedbackError = $("#feedback-error");
+const feedbackList = $("#feedback-list");
+const feedbackHistoryStatus = $("#feedback-history-status");
+const feedbackHistoryCount = $("#feedback-history-count");
+
+// Si la página se abre con ?key=CLAVE se reenvía a la API (para cuando COMMENTS_ADMIN_KEY está configurada)
+const adminKey = new URLSearchParams(location.search).get("key");
+const commentsUrl = "/api/comentarios" + (adminKey ? `?key=${encodeURIComponent(adminKey)}` : "");
+const dateFormat = new Intl.DateTimeFormat("es-ES", { dateStyle: "medium", timeStyle: "short" });
+
+function setHistoryStatus(message) {
+  feedbackHistoryStatus.textContent = message;
+  feedbackHistoryStatus.hidden = !message;
+}
+
+async function loadComments() {
+  if (!feedbackList.children.length) setHistoryStatus("Cargando…");
+  try {
+    const response = await fetch(commentsUrl, { cache: "no-store" });
+    if (response.status === 401) {
+      feedbackList.replaceChildren();
+      feedbackHistoryCount.textContent = "";
+      return setHistoryStatus("El historial es privado.");
+    }
+    if (!response.ok) throw new Error();
+    const comments = await response.json();
+
+    feedbackList.replaceChildren(
+      ...comments.map((comment) => {
+        const item = document.createElement("li");
+        item.className = "feedback__item";
+        const text = document.createElement("p");
+        text.textContent = comment.text; // textContent: evita inyectar HTML
+        const time = document.createElement("time");
+        time.dateTime = comment.date;
+        time.textContent = dateFormat.format(new Date(comment.date));
+        item.append(text, time);
+        return item;
+      })
+    );
+    feedbackHistoryCount.textContent = comments.length ? `(${comments.length})` : "";
+    setHistoryStatus(comments.length ? "" : "Todavía no hay comentarios.");
+  } catch {
+    setHistoryStatus("No se pudo cargar el historial.");
+  }
+}
 const MAX = Number(feedbackText.getAttribute("maxlength"));
 
 function openFeedback() {
@@ -138,6 +184,7 @@ function openFeedback() {
   feedbackPanel.classList.remove("is-closing");
   feedbackToggle.setAttribute("aria-expanded", "true");
   if (!feedbackForm.hidden) feedbackText.focus();
+  loadComments();
 }
 
 function closeFeedback() {
@@ -191,15 +238,31 @@ feedbackForm.addEventListener("submit", async (e) => {
   const text = feedbackText.value.trim();
   if (!text) return;
 
-  const comment = { text, page: location.pathname, date: new Date().toISOString() };
+  feedbackError.hidden = true;
+  feedbackSend.disabled = true;
+  feedbackSend.textContent = "Enviando…";
 
-  // Guardado local (solo en este navegador).
-  // Para recibir los comentarios de verdad, envíalos a un servicio o API, por ejemplo:
-  // await fetch("/api/comentarios", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(comment) });
-  const comments = storage.get("rumbo:comentarios", []);
-  comments.push(comment);
-  storage.set("rumbo:comentarios", comments);
+  try {
+    // Se envía a la función serverless /api/comentarios, que lo guarda en la base de datos
+    const response = await fetch("/api/comentarios", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text, page: location.pathname }),
+    });
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      throw new Error(data.error || "No se pudo enviar el comentario.");
+    }
+  } catch (error) {
+    feedbackError.textContent = error.message || "No se pudo enviar el comentario. Inténtalo de nuevo.";
+    feedbackError.hidden = false;
+    feedbackSend.textContent = "Enviar";
+    updateCount();
+    return;
+  }
 
+  feedbackSend.textContent = "Enviar";
+  loadComments();
   feedbackText.value = "";
   updateCount();
   feedbackForm.hidden = true;
