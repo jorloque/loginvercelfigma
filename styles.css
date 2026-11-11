@@ -438,6 +438,8 @@ button, input, textarea { font: inherit; color: inherit; }
 .feedback__foot { display: flex; align-items: center; justify-content: space-between; }
 .feedback__count { font-size: 12px; color: var(--muted); }
 .feedback__count.is-near-limit { color: var(--error); }
+.feedback__error { margin: 0 0 12px; font-size: 13px; color: var(--error); }
+.feedback__error[hidden] { display: none; }
 
 .feedback__thanks {
   display: flex;
